@@ -1,0 +1,16 @@
+{
+  "name": "backend-project-ladder-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend Ladder Lab — seven projects ordered so each teaches the concept the next rung assumes; every rung plays the failure it prevents.",
+  "scripts": {
+    "start": "node app/server.js",
+    "report": "node scripts/report.mjs",
+    "test": "node --test \"test/*.test.mjs\"",
+    "check": "npm test && npm run report"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

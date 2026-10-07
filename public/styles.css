@@ -1,0 +1,665 @@
+/* ============================================================================
+   Backend Ladder Lab — "Ink & Circuit · Lab Console" (Article Playbook)
+   Dark theme is default; a full light remap ships via prefers-color-scheme.
+   Components reference tokens only — raw hex lives exclusively in :root.
+
+   DOM contract (written/read by app.js — never rename):
+   #ladder .ladder  .rung[.done|.locked|.selected]  .num  .names
+   input[type="checkbox"]  |  #audit .audit  .ok  .gap  code  |
+   #detail-panel  #detail-title  #detail-body  .detail-empty  .detail-card
+   .concept  dl dt dd  |  #sim-controls .sim-controls .hidden  #run-sim
+   #sim-step  button.primary  |  #sim-view .sim-view  .sim-col.without
+   .sim-col.with  .verdict.failed  .verdict.ok  .events  |
+   #load-in-order  #load-skip  #clear-path  .fixture-row
+   ========================================================================== */
+
+:root {
+  /* ---- color (dark) ---- */
+  --bg: #0B1116;
+  --surface: #121B23;
+  --surface-2: #182430;
+  --line: #26343F;
+  --ink: #E9F0F6;
+  --ink-2: #9FB3C0;
+  --accent: #2DD4BF;
+  --accent-soft: #173A35;
+  --accent-ink: #052E28;
+  --accent-2: #F0B44C;
+  --ok: #3BD99A;
+  --ok-soft: #12332A;
+  --fail: #FF7A66;
+  --fail-soft: #3A1D1B;
+  --focus: #5EEAD4;
+  --code-bg: var(--bg); /* §4 code chip: --bg in dark, --surface in light */
+
+  /* ---- type ---- */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --t-eyebrow: .75rem;      /* 12 */
+  --t-caption: .84375rem;   /* 13.5 */
+  --t-body: 1rem;           /* 16 */
+  --t-lead: 1.0625rem;      /* 17 */
+  --t-h3: .9375rem;         /* 15 */
+  --t-h2: 1.25rem;          /* 20 */
+  --t-h1: clamp(1.875rem, 1.4rem + 2vw, 2.5rem); /* 30 → 40 */
+
+  /* ---- space (4/8 rhythm) ---- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;  --sp-5: 20px;
+  --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px; --sp-16: 64px;
+
+  /* ---- radius ---- */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+
+  /* ---- shadow (light theme halves alpha) ---- */
+  --sh-panel: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 12px 32px rgba(0, 0, 0, .35);
+  --sh-pop: 0 16px 48px rgba(0, 0, 0, .45);
+  --sh-press: inset 0 2px 4px rgba(0, 0, 0, .25);
+  --sh-focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--focus);
+
+  /* ---- motion ---- */
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-med: 220ms;
+  --dur-slow: 340ms;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-in: cubic-bezier(.55, 0, .75, 0);
+  --ease-std: cubic-bezier(.4, 0, .2, 1);
+
+  /* ---- layers ---- */
+  --z-sticky: 20;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #F6F4EE;
+    --surface: #FFFFFF;
+    --surface-2: #F0EDE4;
+    --line: #DAD5C7;
+    --ink: #15212B;
+    --ink-2: #50626F;
+    --accent: #0F766E;
+    --accent-soft: #D6EEE9;
+    --accent-ink: #FFFFFF;
+    --accent-2: #9A5B07;
+    --ok: #147A52;
+    --ok-soft: #DFF2E8;
+    --fail: #B3372B;
+    --fail-soft: #F9E4E0;
+    --focus: #0F766E;
+    --code-bg: var(--surface);
+    --sh-panel: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 12px 32px rgba(0, 0, 0, .18);
+    --sh-pop: 0 16px 48px rgba(0, 0, 0, .22);
+    --sh-press: inset 0 2px 4px rgba(0, 0, 0, .12);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+body {
+  margin: 0;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  font-family: var(--font-body);
+  font-size: var(--t-body);
+  line-height: 1.6;
+  color: var(--ink);
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 7%, var(--bg)) 0px,
+      var(--bg) 320px)
+    var(--bg); /* the single permitted wash, behind the header band */
+}
+
+::selection { background: var(--accent-soft); color: var(--ink); }
+
+h1, h2, h3, p { margin-top: 0; }
+
+code {
+  font-family: var(--font-mono);
+  font-size: .78125rem; /* 12.5 */
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 1px 6px;
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------------------------------
+   Header band — eyebrow / h1 / tagline / nav pill
+   -------------------------------------------------------------------------- */
+
+header {
+  max-width: 1180px;
+  margin-inline: auto;
+  padding: 40px 24px 28px;
+}
+
+.head-copy { min-width: 0; }
+
+.eyebrow {
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: var(--t-eyebrow);
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+h1 {
+  margin-bottom: 12px;
+  font-family: var(--font-display);
+  font-size: var(--t-h1);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+
+.tagline {
+  margin: 0;
+  max-width: 68ch;
+  font-size: var(--t-lead);
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+nav { margin-top: 20px; }
+
+nav a {
+  display: inline-block;
+  padding: 8px 16px;
+  font-family: var(--font-mono);
+  font-size: .8125rem; /* 13 */
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+nav a:focus-visible { outline: none; box-shadow: var(--sh-focus); }
+
+/* --------------------------------------------------------------------------
+   Main grid + panels
+   -------------------------------------------------------------------------- */
+
+main {
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: 24px;
+  padding-block-end: 96px; /* clearance so the fixed pb-shell never overlaps */
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-panel);
+  padding: var(--sp-6);
+}
+
+.panel h2 {
+  margin-bottom: 16px;
+  font-family: var(--font-display);
+  font-size: var(--t-h2);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.hint {
+  margin: 0 0 16px;
+  font-size: var(--t-caption);
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.panel > p { margin: 0 0 16px; }
+.panel > p:last-child,
+.panel > ul:last-child,
+.panel > dl:last-child { margin-bottom: 0; }
+
+/* detail panel: 16px between its four blocks (margins collapse to max) */
+#detail-panel > * + * { margin-top: 16px; }
+
+/* --------------------------------------------------------------------------
+   Ladder — flex column-reverse paints rung 7 on top; spine at left edge
+   -------------------------------------------------------------------------- */
+
+#ladder {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  border-left: 2px solid var(--line); /* the spine the rungs hang off */
+  padding-left: 20px;
+}
+
+.rung {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.rung .num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: .8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.rung .names { display: block; min-width: 0; }
+
+.rung .names b {
+  display: block;
+  font-size: var(--t-h3); /* 15 */
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.rung .names span {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: .8125rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+  overflow-wrap: anywhere; /* concept + "— locked: needs …" must wrap, not clip */
+}
+
+.rung input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* done — green border + tinted fill + solid num + checked box (not hue-only) */
+.rung.done {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok-soft) 55%, var(--surface));
+}
+.rung.done .num { background: var(--ok); border-color: var(--ok); color: var(--accent-ink); }
+
+/* locked — dashed border + literal "locked:" text; text stays AA (--ink-2) */
+.rung.locked { border-style: dashed; border-color: var(--line); }
+.rung.locked .num { background: transparent; border-color: var(--line); color: var(--ink-2); }
+
+/* selected — copper border + 2px ring; beats done/locked, ring is additive */
+.rung.selected {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px var(--accent-2);
+}
+.rung.selected .num {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  color: var(--accent-ink);
+}
+
+/* pressed — selection itself is the feedback; brief soft flash while held */
+.rung:active { background-color: var(--accent-soft); transition-duration: var(--dur-instant); }
+
+.rung:focus-visible { outline: none; box-shadow: var(--sh-focus); }
+.rung.selected:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--accent-2),
+    0 0 0 4px var(--bg),
+    0 0 0 6px var(--focus);
+}
+.rung input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Fixture row + buttons
+   -------------------------------------------------------------------------- */
+
+.fixture-row {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fixture-row > span {
+  font-family: var(--font-mono);
+  font-size: .8125rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+#load-in-order, #load-skip, #clear-path { flex: none; }
+
+button {
+  font-family: var(--font-body);
+  font-size: .875rem;
+  font-weight: 500;
+  min-height: 36px;
+  padding: 8px 14px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:focus-visible { outline: none; box-shadow: var(--sh-focus); }
+
+/* pressed: deepen one step + inner shadow — never translate/scale */
+button:active:not(:disabled) {
+  background-color: color-mix(in srgb, var(--surface-2) 85%, black);
+  box-shadow: var(--sh-press);
+  transition-duration: var(--dur-instant);
+}
+
+/* the page's single primary CTA */
+#run-sim,
+button.primary {
+  padding: 10px 18px;
+  min-height: 40px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+#run-sim:active:not(:disabled),
+button.primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 92%, black);
+  box-shadow: var(--sh-press);
+}
+
+/* --------------------------------------------------------------------------
+   Audit — inset sub-card; ok/gap verdict pair
+   -------------------------------------------------------------------------- */
+
+#audit {
+  margin-top: 20px;
+  padding: 16px;
+  font-size: .875rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+#audit > * { animation: audit-in var(--dur-fast) var(--ease-out); }
+@keyframes audit-in { from { opacity: 0; } to { opacity: 1; } }
+
+#audit p { margin: 0 0 10px; }
+#audit p:last-child { margin-bottom: 0; }
+#audit b { color: var(--ink); font-weight: 600; }
+
+#audit .ok { color: var(--ok); font-weight: 600; }
+#audit .ok::before { content: "\2713\00A0"; font-weight: 700; } /* ✓ */
+
+#audit .gap { color: var(--fail); font-weight: 600; }
+
+#audit ul { margin: 10px 0; padding-left: 20px; display: grid; gap: 8px; }
+#audit li.gap {
+  color: var(--ink);
+  font-weight: 400;
+  border-left: 3px solid var(--fail); /* failure must not be color-only */
+  padding-left: 10px;
+}
+#audit li.gap::marker { color: var(--fail); }
+
+/* --------------------------------------------------------------------------
+   Detail panel — empty state, concept chip, definition rows, sim
+   -------------------------------------------------------------------------- */
+
+#detail-title { overflow-wrap: anywhere; } /* long rung names wrap, never clip */
+#detail-body { font-size: .9375rem; }
+
+.detail-empty {
+  line-height: 1.6;
+  color: var(--ink-2);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  padding: 24px;
+  animation: detail-empty-in var(--dur-med) var(--ease-out);
+}
+
+/* children are rebuilt by innerHTML on every render — animating them keeps
+   the crossfade firing on card→card rung switches, not just empty↔card */
+.detail-card > * { animation: detail-card-in var(--dur-med) var(--ease-out); }
+.detail-card > div { margin-bottom: 12px; }
+
+/* two named keyframes so the empty↔card className swap restarts the fade */
+@keyframes detail-empty-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes detail-card-in { from { opacity: 0; } to { opacity: 1; } }
+
+.detail-card .concept {
+  display: inline-block;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: .8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 14%, var(--surface));
+  border: 1px solid var(--accent-2);
+  border-radius: var(--r-pill);
+}
+
+.panel dl { margin: 0 0 16px; }
+.panel dl:last-child,
+.detail-card dl { margin-bottom: 0; }
+
+.panel dt {
+  font-family: var(--font-mono);
+  font-size: var(--t-eyebrow);
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+.panel dt:not(:first-child) { border-top: 1px solid var(--line); padding-top: 14px; }
+.panel dt code { text-transform: none; letter-spacing: normal; }
+
+.panel dd { margin: 4px 0 14px; font-size: .9375rem; line-height: 1.6; color: var(--ink); }
+.panel dd:last-child { margin-bottom: 0; }
+
+.panel ul { margin: 0 0 16px; padding-left: 20px; display: grid; gap: 10px; }
+.panel li { line-height: 1.55; }
+.panel li::marker { color: var(--accent); }
+
+/* ---- sim controls ---- */
+
+#sim-controls { display: flex; gap: 12px; flex-wrap: wrap; }
+.hidden { display: none !important; }
+
+/* ---- sim view — paired WITHOUT / WITH columns ---- */
+
+#sim-view { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.sim-col {
+  min-width: 0;
+  padding: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.sim-col h3 {
+  margin: 0 0 12px;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: .8125rem; /* 13 — §4 sim col headers */
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  line-height: 1.3;
+  border-radius: var(--r-sm);
+}
+.sim-col.without h3 { color: var(--fail); background: var(--fail-soft); }
+.sim-col.with h3 { color: var(--ok); background: var(--ok-soft); }
+
+.sim-col ol { margin: 0; padding-left: 22px; font-size: .875rem; line-height: 1.45; }
+.sim-col ol li { margin-bottom: 10px; color: var(--ink); }
+.sim-col ol li::marker { font-family: var(--font-mono); color: var(--ink-2); }
+.sim-col ol li:last-child { margin-bottom: 0; }
+.sim-col li b { font-weight: 600; color: var(--ink); }
+
+/* the freshly appended step is always :last-child — only new content pulses */
+.sim-col ol > li:last-child,
+.sim-col .verdict { animation: step-in var(--dur-slow) var(--ease-out) both; }
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sim-col .events {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: .78125rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.verdict {
+  margin-top: 12px;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: .8125rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  border-radius: var(--r-sm);
+}
+.verdict.failed { color: var(--fail); background: var(--fail-soft); border: 1px solid var(--fail); }
+.verdict.ok { color: var(--ok); background: var(--ok-soft); border: 1px solid var(--ok); }
+
+/* --------------------------------------------------------------------------
+   Hover — pointer:fine only
+   -------------------------------------------------------------------------- */
+
+@media (hover: hover) {
+  .rung:hover { border-color: var(--accent); background: var(--surface-2); }
+  .rung.selected:hover { border-color: var(--accent-2); } /* copper must persist */
+
+  button:hover:not(:disabled) { background: var(--surface-2); border-color: var(--accent); }
+  #run-sim:hover:not(:disabled),
+  button.primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 92%, black); /* 8% darker */
+    border-color: color-mix(in srgb, var(--accent) 92%, black);
+  }
+
+  nav a:hover {
+    background: var(--surface-2);
+    border-color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: var(--accent);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 4px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+@media (min-width: 960px) {
+  header {
+    padding: 56px 40px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+  }
+  nav { margin-top: 0; flex: none; }
+  main {
+    padding-inline: 40px;
+    grid-template-columns: minmax(380px, 440px) minmax(0, 1fr);
+  }
+  #detail-panel {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    z-index: var(--z-sticky);
+  }
+}
+
+@media (max-width: 699px) {
+  header, main { padding-inline: 16px; }
+  #sim-view { grid-template-columns: 1fr; } /* WITHOUT column stays first */
+}
+
+@media (max-width: 480px) {
+  #ladder { padding-left: 12px; } /* slimmer spine buys rung-7 indent room */
+  .rung { padding: 8px 10px; gap: var(--sp-2); }
+  .panel { padding: var(--sp-5); }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion — everything inert, instantly visible
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backend Ladder Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@600&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+<!-- pb-shell --><link rel="stylesheet" href="./pb-shell.css"><!-- pb-shell --><!-- pb-back --><link rel="stylesheet" href="./pb-back.css"><!-- pb-back --></head>
+<body>
+  <header>
+    <div class="head-copy">
+      <p class="eyebrow">ARTICLE PLAYBOOK · DEMO</p>
+      <h1>Backend Ladder Lab</h1>
+      <p class="tagline">Seven backend projects, ordered so each one teaches the concept the next rung assumes. Pick a rung to see the failure it prevents — tick rungs to audit a climb for skipped lessons.</p>
+    </div>
+    <nav><a href="/guide.html">Guide &amp; article map →</a></nav>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>The ladder</h2>
+      <p class="hint">Dim rungs are locked — their prerequisite concepts aren't in your completed set.</p>
+      <div id="ladder" class="ladder" role="list"></div>
+      <div class="fixture-row">
+        <span>Load a path:</span>
+        <button id="load-in-order" type="button">In order</button>
+        <button id="load-skip" type="button">Skip rungs</button>
+        <button id="clear-path" type="button">Clear</button>
+      </div>
+      <div id="audit" class="audit" aria-live="polite"></div>
+    </section>
+
+    <section class="panel" id="detail-panel">
+      <h2 id="detail-title">Select a rung</h2>
+      <div id="detail-body" class="detail-empty">Click a rung on the ladder to see the concept it forces and the failure it prevents.</div>
+      <div id="sim-controls" class="sim-controls hidden">
+        <button id="run-sim" type="button">Run failure simulation</button>
+        <button id="sim-step" type="button" disabled>Next step →</button>
+      </div>
+      <div id="sim-view" class="sim-view"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+  <script type="module">
+    /* §5 rung keyboard shim — additive only; app.js is never touched.
+       Note (spec): Tab follows DOM order — rung 1→7 — even though
+       .ladder paints column-reverse (rung 7 at top). Arrow keys move
+       spatially: Up/Left climb toward rung 7, Down/Right descend. */
+    const ladderEl = document.getElementById('ladder');
+    let lastFocus = null;
+
+    const armRungs = () => {
+      ladderEl.querySelectorAll('.rung').forEach(r => { r.tabIndex = 0; });
+    };
+
+    /* app.js re-renders the ladder (innerHTML = '') on every state change,
+       which destroys the focused node. Re-arm tabindex on each render and
+       restore focus to the same rung when the wipe stole it. */
+    new MutationObserver(() => {
+      armRungs();
+      if (!lastFocus) return;
+      const ae = document.activeElement;
+      if (ae !== document.body && ae !== document.documentElement) return;
+      const r = ladderEl.children[Math.min(lastFocus.index, ladderEl.children.length - 1)];
+      if (r) (lastFocus.checkbox ? r.querySelector('input') : r).focus();
+    }).observe(ladderEl, { childList: true });
+
+    armRungs();
+
+    ladderEl.addEventListener('focusin', e => {
+      const rung = e.target.closest('.rung');
+      lastFocus = rung
+        ? { index: [...ladderEl.children].indexOf(rung), checkbox: e.target.matches('input') }
+        : null;
+    });
+
+    ladderEl.addEventListener('keydown', e => {
+      const rung = e.target.closest('.rung');
+      if (!rung || e.target !== rung) return; // inside checkbox: keep native behavior
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault(); // Space must not scroll
+        rung.click();
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        (rung.previousElementSibling || rung).focus(); // visually below = DOM-previous
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        (rung.nextElementSibling || rung).focus(); // visually above = DOM-next
+      }
+    });
+  </script>
+<!-- pb-shell --><a class="pb-shell" href="https://github.com/anhquanbd2021/backend-project-ladder" title="backend-project-ladder — an Article Playbook demo (view source)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2" y="2" width="9" height="9" rx="2" fill="#2dd4bf"/><rect x="13" y="2" width="9" height="9" rx="2" fill="#2dd4bf" opacity=".45"/><rect x="2" y="13" width="9" height="9" rx="2" fill="#2dd4bf" opacity=".45"/><rect x="13" y="13" width="9" height="9" rx="4.5" fill="#2dd4bf"/></svg><b>backend-project-ladder</b><i>DEMO</i></a><!-- pb-shell --><!-- pb-back --><a class="pb-back" id="pb-back" href="https://github.com/anhquanbd2021/backend-project-ladder" title="Back to the article — backend-project-ladder">← Article <i>PLAYBOOK</i></a><script>(function(){var a=document.getElementById('pb-back');if(!a)return;var h=location.hostname;if(/^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(h)){a.href='//'+h+':'+(/^(localhost|127\.0\.0\.1)$/.test(h)?'1234':'30082')+'/microsites/article.html?slug=backend-project-ladder';}})();</script><!-- pb-back --></body>
+</html>

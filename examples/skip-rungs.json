@@ -1,0 +1,9 @@
+{
+  "name": "Skip rungs",
+  "note": "Jumped straight to the shiny projects — the audit flags the skipped lessons.",
+  "completed": [
+    "crud-api",
+    "chat-server",
+    "distributed-kv"
+  ]
+}

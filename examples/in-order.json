@@ -1,0 +1,13 @@
+{
+  "name": "In order",
+  "note": "The full climb — every rung completed in sequence.",
+  "completed": [
+    "crud-api",
+    "url-shortener",
+    "rate-limiter",
+    "job-queue",
+    "chat-server",
+    "api-gateway",
+    "distributed-kv"
+  ]
+}
